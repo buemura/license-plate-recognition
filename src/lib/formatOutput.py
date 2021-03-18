@@ -1,4 +1,7 @@
 import os
+import colorama
+from colorama import Fore, Back, Style
+colorama.init()
 
 header = ['Image', 'Plate', 'Status']
 
@@ -23,6 +26,11 @@ def format_output(data):
     for row in data:
         print("┃", end=" ")
         for column in row:
-            print(fixed_length(column, 20), end=" ┃ ")
+            if column == 'AUTHORIZED':
+                print(Fore.GREEN + fixed_length(column, 20) + Style.RESET_ALL, end=" ┃ ")
+            elif column == 'NOT AUTHORIZED':
+                print(Fore.RED + fixed_length(column, 20) + Style.RESET_ALL, end=" ┃ ")
+            else:
+                print(fixed_length(column, 20), end=" ┃ ")
         print()
     print("━" * 70)
