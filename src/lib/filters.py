@@ -2,12 +2,10 @@ import cv2
 import numpy as np
 import pytesseract
 
-
 try:
     from PIL import Image
 except ImportError:
     import Image
-
 
 pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract'
 

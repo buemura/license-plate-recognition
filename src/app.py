@@ -1,14 +1,12 @@
 from lib.filters import *
-# from lib.processing import *
 
-authorized_plate = ['FUN-0972', 'BRA2E19']
 
 def apply_filter(plate):
     gray = get_grayscale(plate)
     thresh = thresholding(gray)
-    # print("Altura (height): %d pixels" % (plate.shape[0]))
-    # print("Largura (width): %d pixels" % (plate.shape[1]))
-    # print("Canais (channels): %d" % (plate.shape[2]))
+    print("Altura (height): %d pixels" % (plate.shape[0]))
+    print("Largura (width): %d pixels" % (plate.shape[1]))
+    print("Canais (channels): %d" % (plate.shape[2]))
     return thresh
 
 
@@ -18,37 +16,39 @@ def scan_plate(image):
     return value[:-2]
 
 
-def validate_plate(value):
-    if value == 'FUN-0972' or value == 'BRA2E19':
-        print('Liberado')
+def validate_plate(plate_number):
+    if plate_number == 'FUN-0972' or plate_number == 'BRA2E19':
+        print(f'{plate_number} - AUTHORIZED')
     else:
-        print('Não liberado')
+        print(f'{plate_number} - NOT AUTHORIZED')
 
 
-# Reading the images
-plate1 = cv2.imread('../images/placa1.jpg')
-plate2 = cv2.imread('../images/placa2.jpg')
-plate3 = cv2.imread('../images/placa3.jpg')
-plate4 = cv2.imread('../images/placa4.jpg')
+authorized_plate = ['FUN-0972', 'BRA2E19']
 
-plate1_filter_applied = apply_filter(plate1)
-plate2_filter_applied = apply_filter(plate2)
-plate3_filter_applied = apply_filter(plate3)
-plate4_filter_applied = apply_filter(plate4)
+images = [
+    '../images/placa1.jpg',
+    '../images/placa2.jpg',
+    '../images/placa3.jpg',
+    '../images/placa4.jpg'
+]
 
-# cv2.imshow('Thresh', plate1_filter_applied)
-# cv2.imshow('Thresh', plate2_filter_applied)
-# cv2.imshow('Thresh', plate3_filter_applied)
-# cv2.imshow('Thresh', plate4_filter_applied)
+plates = []
+plates_filter_applied = []
+plates_numbers = []
 
-plate1_value = scan_plate(plate1_filter_applied)
-plate2_value = scan_plate(plate2_filter_applied)
-plate3_value = scan_plate(plate3_filter_applied)
-plate4_value = scan_plate(plate4_filter_applied)
+# Make an append to list plates
+for i in images:
+    plates.append(cv2.imread(i))
 
-validate_plate(plate1_value)
-validate_plate(plate2_value)
-validate_plate(plate3_value)
-validate_plate(plate4_value)
+# Calls the function apply_filter() passing the plate image
+for i, value in enumerate(plates):
+    plates_filter_applied.append(apply_filter(plates[i]))
+    cv2.imshow('Thresh', plates_filter_applied[i])
+
+for i, value in enumerate(plates_filter_applied):
+    plates_numbers.append(scan_plate(plates_filter_applied[i]))
+
+for i, value in enumerate(plates_numbers):
+    validate_plate(plates_numbers[i])
 
 cv2.waitKey(0)
