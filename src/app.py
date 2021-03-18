@@ -54,7 +54,6 @@ def main():
     for i, value in enumerate(plates_numbers):
         data[i].append(validate_plate(plates_numbers[i], authorized_plate))
 
-    print(data)
     format_output(data)
 
 
