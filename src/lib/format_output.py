@@ -1,6 +1,5 @@
-import os
 import colorama
-from colorama import Fore, Back, Style
+from colorama import Fore, Style
 
 colorama.init()
 
@@ -16,7 +15,6 @@ def fixed_length(text, length):
 
 
 def format_output(data):
-    os.system('clear')
     print("━" * 70)
     print("┃", end=" ")
     for column in header:

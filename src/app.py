@@ -1,6 +1,7 @@
+from os import walk
 import cv2
 from lib.filters import get_grayscale, thresholding, pytesseract
-from lib.formatOutput import format_output
+from lib.format_output import format_output
 
 
 def apply_filter(plate):
@@ -35,23 +36,29 @@ def main():
     plates = []
     plates_filter_applied = []
     plates_numbers = []
-    data = [['placa1.jpg'], ['placa2.jpg'], ['placa3.jpg'], ['placa4.jpg']]
+    data = []
+    _, _, filenames = next(walk('../images/'))
+
+    # Append the files name to list data
+    for i in range(len(filenames)):
+        data.append([])
+        data[i].append(filenames[i])
 
     # Make an append to list plates
     for i in images:
         plates.append(cv2.imread(i))
 
     # Calls the function apply_filter() passing the plate image
-    for i, value in enumerate(plates):
+    for i in range(len(plates)):
         plates_filter_applied.append(apply_filter(plates[i]))
 
     # Calls the function scan_plate() passing the plate image with filter applied
-    for i, value in enumerate(plates_filter_applied):
+    for i in range(len(plates_filter_applied)):
         plates_numbers.append(scan_plate(plates_filter_applied[i]))
         data[i].append(plates_numbers[i])
 
     # Calls the function validate_plate() passing the plate number
-    for i, value in enumerate(plates_numbers):
+    for i in range(len(plates_numbers)):
         data[i].append(validate_plate(plates_numbers[i], authorized_plate))
 
     format_output(data)
