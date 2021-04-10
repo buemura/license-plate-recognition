@@ -5,9 +5,9 @@ Car Plate Recognition app using Python3 and cv2 library
 In order to run this project, you will need to fulfill the following requirements.
 - Python 3 installation
 - Tesseract OCR installation
-- Import of cv2
+- pip install cv2
+- pip install pytesseract
 - Import of numpy
-- Import of pytesseract
 
 ## Setup
 Firstly you can clone by using the command below:
