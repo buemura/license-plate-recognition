@@ -13,7 +13,7 @@ In order to run this project, you will need to fulfill the following requirement
 Firstly you can clone by using the command below:
 
 ```bash
-https://github.com/BrunoUemura/CarPlate-Recognition.git
+git clone https://github.com/BrunoUemura/CarPlate-Recognition.git
 ```
 
 Or download the zip file directly from [Github](https://github.com/BrunoUemura/CarPlate-Recognition.git) and unzip it.
