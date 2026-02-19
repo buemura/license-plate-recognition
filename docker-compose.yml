@@ -1,0 +1,91 @@
+services:
+  # PostgreSQL Database
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: plate_recognition
+    volumes:
+      - ./data/pg:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Redis
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - ./data/redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # # FastAPI Backend
+  # app:
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile
+  #   container_name: plate-recognition-app
+  #   environment:
+  #     DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/plate_recognition
+  #     REDIS_URL: redis://redis:6379/0
+  #     STORAGE_TYPE: local
+  #     UPLOAD_DIR: /app/uploads
+  #     CORS_ORIGINS: '["http://localhost:5173", "http://localhost:80", "http://localhost"]'
+  #   volumes:
+  #     - uploads_data:/app/uploads
+  #   ports:
+  #     - "8000:8000"
+  #   depends_on:
+  #     db:
+  #       condition: service_healthy
+  #     redis:
+  #       condition: service_healthy
+  #   healthcheck:
+  #     test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+  #     interval: 10s
+  #     timeout: 5s
+  #     retries: 5
+
+  # # Celery Worker
+  # worker:
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile
+  #   container_name: plate-recognition-worker
+  #   command: celery -A app.worker.celery_app worker --loglevel=info
+  #   environment:
+  #     DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/plate_recognition
+  #     REDIS_URL: redis://redis:6379/0
+  #     STORAGE_TYPE: local
+  #     UPLOAD_DIR: /app/uploads
+  #   volumes:
+  #     - uploads_data:/app/uploads
+  #   depends_on:
+  #     db:
+  #       condition: service_healthy
+  #     redis:
+  #       condition: service_healthy
+  #     app:
+  #       condition: service_healthy
+
+  # # React Frontend
+  # web:
+  #   build:
+  #     context: ./web
+  #     dockerfile: Dockerfile
+  #   container_name: plate-recognition-web
+  #   ports:
+  #     - "80:80"
+  #   depends_on:
+  #     app:
+  #       condition: service_healthy
