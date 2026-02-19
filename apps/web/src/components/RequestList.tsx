@@ -4,9 +4,10 @@ import { RequestStatus } from "./RequestStatus";
 
 interface RequestListProps {
   requests: RecognitionRequest[];
+  onReprocess?: (requestId: string) => void;
 }
 
-export function RequestList({ requests }: RequestListProps) {
+export function RequestList({ requests, onReprocess }: RequestListProps) {
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
       <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
@@ -58,7 +59,15 @@ export function RequestList({ requests }: RequestListProps) {
               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                 {new Date(request.created_at).toLocaleString()}
               </td>
-              <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
+              <td className="px-6 py-4 whitespace-nowrap text-right text-sm flex items-center justify-end gap-3">
+                {request.status === "FAILED" && onReprocess && (
+                  <button
+                    onClick={() => onReprocess(request.id)}
+                    className="text-orange-600 hover:text-orange-800 dark:text-orange-400 dark:hover:text-orange-300 font-medium"
+                  >
+                    Retry
+                  </button>
+                )}
                 <Link
                   to="/requests/$requestId"
                   params={{ requestId: request.id }}

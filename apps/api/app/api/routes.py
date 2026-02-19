@@ -54,6 +54,50 @@ async def submit_recognition_request(
     )
 
 
+@router.post("/{request_id}/reprocess", response_model=RecognitionRequestSubmitResponse)
+async def reprocess_recognition_request(
+    request_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    result = await db.execute(
+        select(RecognitionRequest).where(RecognitionRequest.id == request_id)
+    )
+    recognition_request = result.scalar_one_or_none()
+
+    if not recognition_request:
+        raise HTTPException(status_code=404, detail="Recognition request not found")
+
+    if recognition_request.status not in (
+        RecognitionStatus.FAILED,
+        RecognitionStatus.NEEDS_REVIEW,
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail="Only FAILED or NEEDS_REVIEW requests can be reprocessed",
+        )
+
+    recognition_request.status = RecognitionStatus.NOT_STARTED
+    recognition_request.plate_number = None
+    recognition_request.error_message = None
+    recognition_request.confidence_score = None
+    recognition_request.detection_confidence = None
+    recognition_request.ocr_confidence = None
+    recognition_request.needs_review = False
+    recognition_request.bounding_box = None
+    recognition_request.plate_region = None
+
+    await db.commit()
+    await db.refresh(recognition_request)
+
+    process_plate_recognition.delay(str(request_id))
+
+    return RecognitionRequestSubmitResponse(
+        request_id=recognition_request.id,
+        status=recognition_request.status,
+        created_at=recognition_request.created_at,
+    )
+
+
 @router.get("/{request_id}", response_model=RecognitionRequestResponse)
 async def get_recognition_request(
     request_id: uuid.UUID,

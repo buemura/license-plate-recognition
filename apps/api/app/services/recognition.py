@@ -4,6 +4,8 @@ import logging
 from dataclasses import dataclass, field
 from pathlib import Path
 
+import re
+
 import cv2
 import numpy as np
 
@@ -142,6 +144,22 @@ class RecognitionService:
 
         return self.process_image_array(image)
 
+    def _is_plate_crop(self, image: np.ndarray) -> bool:
+        """Detect if the image is already a tightly cropped plate.
+
+        Heuristics: small dimensions with plate-like aspect ratio (wide and short).
+        """
+        h, w = image.shape[:2]
+        if h == 0:
+            return False
+        aspect_ratio = w / h
+
+        # Plate crops are typically small and have a wide aspect ratio (2:1 to 6:1)
+        is_small = w < 800 and h < 300
+        is_plate_aspect = 1.5 <= aspect_ratio <= 7.0
+
+        return is_small and is_plate_aspect
+
     def process_image_array(self, image: np.ndarray) -> RecognitionResult:
         """Process a numpy array image through the recognition pipeline."""
         processing_metadata = {"attempts": 0, "stages_applied": []}
@@ -155,21 +173,29 @@ class RecognitionService:
             "is_skewed": quality.is_skewed,
         }
 
-        # Stage 2: Detect plate region
-        detection = self.detector.detect(image)
-        if detection:
-            detection_confidence = detection.confidence
-            bounding_box = detection.bounding_box.to_dict()
-            plate_image = self.detector.crop_plate(
-                image, detection, padding=self.config.detection_padding
-            )
-            processing_metadata["stages_applied"].append("detection")
-        else:
-            # Use full image as fallback
-            detection_confidence = 0.5
+        # Stage 2: Detect plate region (skip if image is already a plate crop)
+        if self._is_plate_crop(image):
+            # Image looks like it's already cropped to the plate — use as-is
+            detection_confidence = 0.8
             bounding_box = None
             plate_image = image
-            processing_metadata["stages_applied"].append("fallback_full_image")
+            processing_metadata["stages_applied"].append("pre_cropped_plate")
+            logger.info("Image detected as pre-cropped plate, skipping detection")
+        else:
+            detection = self.detector.detect(image)
+            if detection:
+                detection_confidence = detection.confidence
+                bounding_box = detection.bounding_box.to_dict()
+                plate_image = self.detector.crop_plate(
+                    image, detection, padding=self.config.detection_padding
+                )
+                processing_metadata["stages_applied"].append("detection")
+            else:
+                # Use full image as fallback
+                detection_confidence = 0.5
+                bounding_box = None
+                plate_image = image
+                processing_metadata["stages_applied"].append("fallback_full_image")
 
         # Stage 3: Run initial OCR
         ocr_result = self.ocr_engine.extract_text(plate_image)
@@ -211,11 +237,62 @@ class RecognitionService:
             processing_metadata=processing_metadata,
         )
 
+    def _extract_plate_substrings(self, text: str, confidence: float) -> list[tuple[str, float]]:
+        """Extract plate-like substrings from text that may contain extra words.
+
+        On cropped plates, EasyOCR may read extra text like "BRASIL" alongside the
+        plate number. This extracts substrings matching known plate patterns.
+        """
+        cleaned = re.sub(r"[^A-Za-z0-9]", "", text).upper()
+        extracted = []
+
+        # Brazilian plate patterns to search for within the text
+        patterns = [
+            r"[A-Z]{3}\d[A-Z]\d{2}",  # Mercosul: ABC1D23
+            r"[A-Z]{3}\d{4}",          # Old format: ABC1234
+        ]
+
+        for pattern in patterns:
+            for match in re.finditer(pattern, cleaned):
+                plate = match.group()
+                if not any(e[0] == plate for e in extracted):
+                    extracted.append((plate, confidence * 0.95))
+
+        return extracted
+
     def _validate_ocr_result(self, ocr_result: OCRResult) -> ValidationResult:
         """Validate OCR result using the validator."""
         candidates = self.ocr_engine.get_candidates(
             ocr_result, min_confidence=self.config.min_ocr_confidence
         )
+
+        # Also include the combined text as a candidate, since EasyOCR may
+        # split a single plate into multiple text segments (e.g. "ABC" + "1D23").
+        # The combined text often forms the full plate number.
+        if ocr_result.text and ocr_result.confidence >= self.config.min_ocr_confidence:
+            combined = ocr_result.text
+            if not any(c[0] == combined for c in candidates):
+                candidates.append((combined, ocr_result.confidence))
+
+        # Also try concatenating adjacent OCR segments, since a plate number
+        # may be split across 2-3 text detections (e.g. "ABC" + "1D23").
+        raw = ocr_result.raw_results
+        for i in range(len(raw)):
+            for j in range(i + 2, min(i + 4, len(raw) + 1)):
+                segment_texts = [r[1] for r in raw[i:j] if r[2] >= self.config.min_ocr_confidence]
+                if len(segment_texts) == j - i:
+                    concat = "".join(segment_texts)
+                    avg_conf = sum(r[2] for r in raw[i:j]) / (j - i)
+                    if not any(c[0] == concat for c in candidates):
+                        candidates.append((concat, avg_conf))
+
+        # Extract plate patterns from longer text that may include extra words
+        # (e.g. "BRASIL ABC1D23" → "ABC1D23")
+        for text, conf in list(candidates):
+            extracted = self._extract_plate_substrings(text, conf)
+            for ext_text, ext_conf in extracted:
+                if not any(c[0] == ext_text for c in candidates):
+                    candidates.append((ext_text, ext_conf))
 
         if not candidates:
             return ValidationResult(

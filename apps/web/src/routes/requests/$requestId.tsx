@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
-import { getRecognitionRequest } from "@/api/client";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { getRecognitionRequest, reprocessRecognitionRequest } from "@/api/client";
 import { RequestStatus } from "@/components/RequestStatus";
 
 export const Route = createFileRoute("/requests/$requestId")({
@@ -9,6 +9,7 @@ export const Route = createFileRoute("/requests/$requestId")({
 
 function RequestDetailPage() {
   const { requestId } = Route.useParams();
+  const queryClient = useQueryClient();
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["recognition-request", requestId],
@@ -16,6 +17,13 @@ function RequestDetailPage() {
     refetchInterval: (query) => {
       const status = query.state.data?.status;
       return status === "NOT_STARTED" || status === "PENDING" ? 2000 : false;
+    },
+  });
+
+  const reprocessMutation = useMutation({
+    mutationFn: () => reprocessRecognitionRequest(requestId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["recognition-request", requestId] });
     },
   });
 
@@ -119,6 +127,19 @@ function RequestDetailPage() {
                   <h3 className="text-sm font-medium text-red-500 dark:text-red-400">Error</h3>
                   <p className="text-sm text-red-600 dark:text-red-400">{data.error_message}</p>
                 </div>
+              )}
+
+              {data.status === "FAILED" && (
+                <button
+                  onClick={() => reprocessMutation.mutate()}
+                  disabled={reprocessMutation.isPending}
+                  className="px-4 py-2 bg-orange-600 text-white text-sm font-medium rounded-lg hover:bg-orange-700 transition-colors disabled:opacity-50 flex items-center gap-2"
+                >
+                  {reprocessMutation.isPending && (
+                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />
+                  )}
+                  {reprocessMutation.isPending ? "Retrying..." : "Retry Processing"}
+                </button>
               )}
 
               <div>

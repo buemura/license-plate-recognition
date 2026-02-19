@@ -1,18 +1,27 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ImageUpload } from "@/components/ImageUpload";
 import { RequestList } from "@/components/RequestList";
-import { listRecognitionRequests } from "@/api/client";
+import { listRecognitionRequests, reprocessRecognitionRequest } from "@/api/client";
 
 export const Route = createFileRoute("/")({
   component: HomePage,
 });
 
 function HomePage() {
+  const queryClient = useQueryClient();
+
   const { data, isLoading, refetch } = useQuery({
     queryKey: ["recognition-requests"],
     queryFn: () => listRecognitionRequests(1, 20),
     refetchInterval: 5000,
+  });
+
+  const reprocessMutation = useMutation({
+    mutationFn: reprocessRecognitionRequest,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["recognition-requests"] });
+    },
   });
 
   return (
@@ -37,7 +46,10 @@ function HomePage() {
             No recognition requests yet. Upload an image to get started.
           </div>
         ) : (
-          <RequestList requests={data?.items || []} />
+          <RequestList
+            requests={data?.items || []}
+            onReprocess={(id) => reprocessMutation.mutate(id)}
+          />
         )}
       </section>
     </div>

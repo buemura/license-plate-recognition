@@ -25,6 +25,21 @@ export async function submitRecognitionRequest(
   return response.json();
 }
 
+export async function reprocessRecognitionRequest(
+  requestId: string
+): Promise<RecognitionSubmitResponse> {
+  const response = await fetch(`${API_BASE}/${requestId}/reprocess`, {
+    method: "POST",
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error.detail || "Failed to reprocess recognition request");
+  }
+
+  return response.json();
+}
+
 export async function getRecognitionRequest(
   requestId: string
 ): Promise<RecognitionRequest> {
