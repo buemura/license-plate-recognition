@@ -242,21 +242,24 @@ class RecognitionService:
 
         On cropped plates, EasyOCR may read extra text like "BRASIL" alongside the
         plate number. This extracts substrings matching known plate patterns.
+
+        Uses lenient alphanumeric matching because OCR commonly confuses
+        I↔1, O↔0, B↔8, S↔5, Z↔2. The validator's correction rules will
+        fix these after extraction.
         """
         cleaned = re.sub(r"[^A-Za-z0-9]", "", text).upper()
         extracted = []
 
-        # Brazilian plate patterns to search for within the text
-        patterns = [
-            r"[A-Z]{3}\d[A-Z]\d{2}",  # Mercosul: ABC1D23
-            r"[A-Z]{3}\d{4}",          # Old format: ABC1234
-        ]
-
-        for pattern in patterns:
-            for match in re.finditer(pattern, cleaned):
-                plate = match.group()
-                if not any(e[0] == plate for e in extracted):
-                    extracted.append((plate, confidence * 0.95))
+        # Extract all 7-char alphanumeric substrings that contain both
+        # letters and digits (plate-like). This is lenient to allow OCR
+        # character confusions — the validator will correct them.
+        for match in re.finditer(r"(?=([A-Z0-9]{7}))", cleaned):
+            candidate = match.group(1)
+            has_letters = any(c.isalpha() for c in candidate)
+            has_digits = any(c.isdigit() for c in candidate)
+            if has_letters and has_digits:
+                if not any(e[0] == candidate for e in extracted):
+                    extracted.append((candidate, confidence * 0.95))
 
         return extracted
 
@@ -293,6 +296,11 @@ class RecognitionService:
             for ext_text, ext_conf in extracted:
                 if not any(c[0] == ext_text for c in candidates):
                     candidates.append((ext_text, ext_conf))
+
+        logger.info(
+            f"OCR raw segments: {[(r[1], round(r[2], 3)) for r in ocr_result.raw_results]}"
+        )
+        logger.info(f"Validation candidates: {[(c[0], round(c[1], 3)) for c in candidates]}")
 
         if not candidates:
             return ValidationResult(

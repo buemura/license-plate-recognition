@@ -44,7 +44,12 @@ class EasyOCREngine(OCREngine):
     def extract_text(self, image: np.ndarray) -> OCRResult:
         """Extract text from an image using EasyOCR."""
         try:
-            results = self.reader.readtext(image, detail=1, paragraph=False)
+            results = self.reader.readtext(
+                image,
+                detail=1,
+                paragraph=False,
+                allowlist="ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789",
+            )
         except Exception as e:
             logger.error(f"EasyOCR extraction failed: {e}")
             return OCRResult(
